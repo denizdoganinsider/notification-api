@@ -20,6 +20,19 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	userController := controller.NewUserController(userService)
 
+	notificationRepo := repository.NewNotificationRepository(db)
+	webhookRepo := repository.NewWebhookRepository(db)
+
+	cacheService := service.NewCacheService()
+	webhookDeliveryService := service.NewWebhookDeliveryService(webhookRepo)
+	eventService := service.NewEventService(cacheService, webhookDeliveryService)
+
+	notificationService := service.NewNotificationService(notificationRepo, eventService)
+	notificationController := controller.NewNotificationController(notificationService)
+
+	webhookService := service.NewWebhookService(webhookRepo)
+	webhookController := controller.NewWebhookController(webhookService)
+
 	e := echo.New()
 
 	e.GET("/health", func(c echo.Context) error {
@@ -30,7 +43,19 @@ func main() {
 
 	e.POST("/register", userController.Register)
 	e.POST("/login", userController.Login)
-	e.GET("/me", userController.Me, notificationMiddleware.JWTMiddleware)
+
+	auth := e.Group("")
+	auth.Use(notificationMiddleware.JWTMiddleware)
+
+	auth.GET("/me", userController.Me)
+
+	auth.POST("/notifications", notificationController.Create)
+	auth.GET("/notifications", notificationController.List)
+	auth.GET("/notifications/:id", notificationController.GetByID)
+
+	auth.POST("/webhooks", webhookController.Create)
+	auth.GET("/webhooks", webhookController.List)
+	auth.DELETE("/webhooks/:id", webhookController.Delete)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
