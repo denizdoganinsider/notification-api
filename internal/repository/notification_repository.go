@@ -99,3 +99,43 @@ func (r *NotificationRepository) ListByUserID(userID int64, limit int, offset in
 
 	return notifications, nil
 }
+
+func (r *NotificationRepository) ListAll(limit int, offset int) ([]domain.Notification, error) {
+	query := `
+	SELECT id, user_id, title, message, created_at
+	FROM notifications
+	ORDER BY created_at DESC
+	LIMIT ? OFFSET ?
+	`
+
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notifications []domain.Notification
+
+	for rows.Next() {
+		var notification domain.Notification
+
+		err := rows.Scan(
+			&notification.ID,
+			&notification.UserID,
+			&notification.Title,
+			&notification.Message,
+			&notification.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		notifications = append(notifications, notification)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return notifications, nil
+}
