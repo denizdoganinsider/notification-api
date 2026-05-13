@@ -9,15 +9,18 @@ import (
 type NotificationService struct {
 	notificationRepo *repository.NotificationRepository
 	eventService     *EventService
+	cacheService     *CacheService
 }
 
 func NewNotificationService(
 	notificationRepo *repository.NotificationRepository,
 	eventService *EventService,
+	cacheService *CacheService,
 ) *NotificationService {
 	return &NotificationService{
 		notificationRepo: notificationRepo,
 		eventService:     eventService,
+		cacheService:     cacheService,
 	}
 }
 
@@ -67,11 +70,41 @@ func (s *NotificationService) List(userID int64, page int, perPage int) ([]domai
 		perPage = 100
 	}
 
+	cached, err := s.cacheService.GetNotifications(userID, page, perPage)
+	if err == nil {
+		return cached, nil
+	}
+
 	offset := (page - 1) * perPage
 
-	return s.notificationRepo.ListByUserID(userID, perPage, offset)
+	notifications, err := s.notificationRepo.ListByUserID(userID, perPage, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = s.cacheService.SetNotifications(userID, page, perPage, notifications)
+
+	return notifications, nil
 }
 
 func (s *NotificationService) GetByID(id int64, userID int64) (*domain.Notification, error) {
 	return s.notificationRepo.GetByIDAndUserID(id, userID)
+}
+
+func (s *NotificationService) ListAll(page int, perPage int) ([]domain.Notification, error) {
+	if page < 1 {
+		page = 1
+	}
+
+	if perPage < 1 {
+		perPage = 10
+	}
+
+	if perPage > 100 {
+		perPage = 100
+	}
+
+	offset := (page - 1) * perPage
+
+	return s.notificationRepo.ListAll(perPage, offset)
 }

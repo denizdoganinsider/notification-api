@@ -6,6 +6,7 @@ import (
 	"notification-api/internal/controller"
 	"notification-api/internal/repository"
 	"notification-api/internal/service"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -16,6 +17,9 @@ func main() {
 	db := config.NewDatabase()
 	defer db.Close()
 
+	redisClient := config.NewRedisClient()
+	defer redisClient.Close()
+
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo)
 	userController := controller.NewUserController(userService)
@@ -23,17 +27,21 @@ func main() {
 	notificationRepo := repository.NewNotificationRepository(db)
 	webhookRepo := repository.NewWebhookRepository(db)
 
-	cacheService := service.NewCacheService()
+	cacheService := service.NewCacheService(redisClient)
 	webhookDeliveryService := service.NewWebhookDeliveryService(webhookRepo)
 	eventService := service.NewEventService(cacheService, webhookDeliveryService)
 
-	notificationService := service.NewNotificationService(notificationRepo, eventService)
+	notificationService := service.NewNotificationService(notificationRepo, eventService, cacheService)
 	notificationController := controller.NewNotificationController(notificationService)
 
 	webhookService := service.NewWebhookService(webhookRepo)
 	webhookController := controller.NewWebhookController(webhookService)
 
+	adminController := controller.NewAdminController(userService, notificationService)
+
 	e := echo.New()
+
+	e.Use(notificationMiddleware.RateLimiterMiddleware(redisClient, 100, 1*time.Minute))
 
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{
@@ -56,6 +64,12 @@ func main() {
 	auth.POST("/webhooks", webhookController.Create)
 	auth.GET("/webhooks", webhookController.List)
 	auth.DELETE("/webhooks/:id", webhookController.Delete)
+
+	admin := auth.Group("/admin")
+	admin.Use(notificationMiddleware.AdminMiddleware)
+
+	admin.GET("/users", adminController.ListUsers)
+	admin.GET("/notifications", adminController.ListNotifications)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

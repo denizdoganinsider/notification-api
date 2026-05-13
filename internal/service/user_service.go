@@ -61,3 +61,7 @@ func (s *UserService) Login(email, password string) (*domain.User, error) {
 func (s *UserService) GetByID(userID int64) (*domain.User, error) {
 	return s.userRepo.GetByID(userID)
 }
+
+func (s *UserService) GetAll() ([]domain.User, error) {
+	return s.userRepo.GetAll()
+}

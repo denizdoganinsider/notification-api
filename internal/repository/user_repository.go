@@ -86,3 +86,42 @@ func (r *UserRepository) GetByID(id int64) (*domain.User, error) {
 
 	return &user, nil
 }
+
+func (r *UserRepository) GetAll() ([]domain.User, error) {
+	query := `
+	SELECT id, email, password_hash, role, created_at
+	FROM users
+	ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []domain.User
+
+	for rows.Next() {
+		var user domain.User
+
+		err := rows.Scan(
+			&user.ID,
+			&user.Email,
+			&user.PasswordHash,
+			&user.Role,
+			&user.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}

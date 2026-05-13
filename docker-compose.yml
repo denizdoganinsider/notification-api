@@ -5,7 +5,7 @@ services:
   mysql:
     image: mysql:8
     container_name: notification_mysql
-    restart: always
+    restart: no
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: notification_db
@@ -13,6 +13,13 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:7
+    container_name: notification_redis
+    restart: no
+    ports:
+      - "6379:6379"
 
 volumes:
   mysql_data:
