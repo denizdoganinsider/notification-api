@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"notification-api/config"
 	"notification-api/internal/controller"
 	"notification-api/internal/repository"
 	"notification-api/internal/service"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -41,6 +45,7 @@ func main() {
 
 	e := echo.New()
 
+	e.Use(notificationMiddleware.LoggerMiddleware)
 	e.Use(notificationMiddleware.RateLimiterMiddleware(redisClient, 100, 1*time.Minute))
 
 	e.GET("/health", func(c echo.Context) error {
@@ -60,6 +65,8 @@ func main() {
 	auth.POST("/notifications", notificationController.Create)
 	auth.GET("/notifications", notificationController.List)
 	auth.GET("/notifications/:id", notificationController.GetByID)
+	auth.PUT("/notifications/:id/read", notificationController.MarkAsRead)
+	auth.DELETE("/notifications/:id", notificationController.Delete)
 
 	auth.POST("/webhooks", webhookController.Create)
 	auth.GET("/webhooks", webhookController.List)
@@ -71,5 +78,20 @@ func main() {
 	admin.GET("/users", adminController.ListUsers)
 	admin.GET("/notifications", adminController.ListNotifications)
 
-	e.Logger.Fatal(e.Start(":8080"))
+	go func() {
+		if err := e.Start(":8080"); err != nil && err != http.ErrServerClosed {
+			e.Logger.Fatal(err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
 }

@@ -6,6 +6,13 @@ import (
 	"notification-api/internal/repository"
 )
 
+type PaginatedNotifications struct {
+	Data    []domain.Notification `json:"data"`
+	Total   int64                 `json:"total"`
+	Page    int                   `json:"page"`
+	PerPage int                   `json:"per_page"`
+}
+
 type NotificationService struct {
 	notificationRepo *repository.NotificationRepository
 	eventService     *EventService
@@ -57,7 +64,7 @@ func (s *NotificationService) Create(userID int64, title string, message string)
 	return notification, nil
 }
 
-func (s *NotificationService) List(userID int64, page int, perPage int) ([]domain.Notification, error) {
+func (s *NotificationService) List(userID int64, page int, perPage int) (*PaginatedNotifications, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -72,7 +79,13 @@ func (s *NotificationService) List(userID int64, page int, perPage int) ([]domai
 
 	cached, err := s.cacheService.GetNotifications(userID, page, perPage)
 	if err == nil {
-		return cached, nil
+		total, _ := s.notificationRepo.CountByUserID(userID)
+		return &PaginatedNotifications{
+			Data:    cached,
+			Total:   total,
+			Page:    page,
+			PerPage: perPage,
+		}, nil
 	}
 
 	offset := (page - 1) * perPage
@@ -84,14 +97,36 @@ func (s *NotificationService) List(userID int64, page int, perPage int) ([]domai
 
 	_ = s.cacheService.SetNotifications(userID, page, perPage, notifications)
 
-	return notifications, nil
+	total, _ := s.notificationRepo.CountByUserID(userID)
+
+	return &PaginatedNotifications{
+		Data:    notifications,
+		Total:   total,
+		Page:    page,
+		PerPage: perPage,
+	}, nil
 }
 
 func (s *NotificationService) GetByID(id int64, userID int64) (*domain.Notification, error) {
 	return s.notificationRepo.GetByIDAndUserID(id, userID)
 }
 
-func (s *NotificationService) ListAll(page int, perPage int) ([]domain.Notification, error) {
+func (s *NotificationService) MarkAsRead(id int64, userID int64) error {
+	return s.notificationRepo.MarkAsRead(id, userID)
+}
+
+func (s *NotificationService) Delete(id int64, userID int64) error {
+	err := s.notificationRepo.DeleteByIDAndUserID(id, userID)
+	if err != nil {
+		return err
+	}
+
+	_ = s.cacheService.InvalidateUserNotifications(userID)
+
+	return nil
+}
+
+func (s *NotificationService) ListAll(page int, perPage int) (*PaginatedNotifications, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -106,5 +141,17 @@ func (s *NotificationService) ListAll(page int, perPage int) ([]domain.Notificat
 
 	offset := (page - 1) * perPage
 
-	return s.notificationRepo.ListAll(perPage, offset)
+	notifications, err := s.notificationRepo.ListAll(perPage, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	total, _ := s.notificationRepo.CountAll()
+
+	return &PaginatedNotifications{
+		Data:    notifications,
+		Total:   total,
+		Page:    page,
+		PerPage: perPage,
+	}, nil
 }

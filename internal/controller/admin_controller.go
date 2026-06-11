@@ -62,12 +62,12 @@ func (ac *AdminController) ListNotifications(c echo.Context) error {
 		perPage = parsedPerPage
 	}
 
-	notifications, err := ac.notificationService.ListAll(page, perPage)
+	result, err := ac.notificationService.ListAll(page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "failed to fetch notifications",
 		})
 	}
 
-	return c.JSON(http.StatusOK, notifications)
+	return c.JSON(http.StatusOK, result)
 }

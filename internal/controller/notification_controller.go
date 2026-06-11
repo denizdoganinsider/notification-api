@@ -85,14 +85,14 @@ func (nc *NotificationController) List(c echo.Context) error {
 		perPage = parsedPerPage
 	}
 
-	notifications, err := nc.notificationService.List(userID, page, perPage)
+	result, err := nc.notificationService.List(userID, page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "failed to fetch notifications",
 		})
 	}
 
-	return c.JSON(http.StatusOK, notifications)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (nc *NotificationController) GetByID(c echo.Context) error {
@@ -125,4 +125,60 @@ func (nc *NotificationController) GetByID(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, notification)
+}
+
+func (nc *NotificationController) MarkAsRead(c echo.Context) error {
+	userID, ok := c.Get("user_id").(int64)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "unauthorized",
+		})
+	}
+
+	idParam := c.Param("id")
+	notificationID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid notification id",
+		})
+	}
+
+	err = nc.notificationService.MarkAsRead(notificationID, userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to mark notification as read",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "notification marked as read",
+	})
+}
+
+func (nc *NotificationController) Delete(c echo.Context) error {
+	userID, ok := c.Get("user_id").(int64)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "unauthorized",
+		})
+	}
+
+	idParam := c.Param("id")
+	notificationID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid notification id",
+		})
+	}
+
+	err = nc.notificationService.Delete(notificationID, userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to delete notification",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "notification deleted successfully",
+	})
 }
