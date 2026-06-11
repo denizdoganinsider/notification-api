@@ -11,6 +11,7 @@ CREATE TABLE notifications (
     user_id BIGINT NOT NULL,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
+    read_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_notifications_user_id
         FOREIGN KEY (user_id) REFERENCES users(id)

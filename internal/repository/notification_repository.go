@@ -36,7 +36,7 @@ func (r *NotificationRepository) Create(notification *domain.Notification) error
 
 func (r *NotificationRepository) GetByIDAndUserID(id int64, userID int64) (*domain.Notification, error) {
 	query := `
-	SELECT id, user_id, title, message, created_at
+	SELECT id, user_id, title, message, read_at, created_at
 	FROM notifications
 	WHERE id = ? AND user_id = ?
 	`
@@ -50,6 +50,7 @@ func (r *NotificationRepository) GetByIDAndUserID(id int64, userID int64) (*doma
 		&notification.UserID,
 		&notification.Title,
 		&notification.Message,
+		&notification.ReadAt,
 		&notification.CreatedAt,
 	)
 	if err != nil {
@@ -61,7 +62,7 @@ func (r *NotificationRepository) GetByIDAndUserID(id int64, userID int64) (*doma
 
 func (r *NotificationRepository) ListByUserID(userID int64, limit int, offset int) ([]domain.Notification, error) {
 	query := `
-	SELECT id, user_id, title, message, created_at
+	SELECT id, user_id, title, message, read_at, created_at
 	FROM notifications
 	WHERE user_id = ?
 	ORDER BY created_at DESC
@@ -84,6 +85,7 @@ func (r *NotificationRepository) ListByUserID(userID int64, limit int, offset in
 			&notification.UserID,
 			&notification.Title,
 			&notification.Message,
+			&notification.ReadAt,
 			&notification.CreatedAt,
 		)
 		if err != nil {
@@ -102,7 +104,7 @@ func (r *NotificationRepository) ListByUserID(userID int64, limit int, offset in
 
 func (r *NotificationRepository) ListAll(limit int, offset int) ([]domain.Notification, error) {
 	query := `
-	SELECT id, user_id, title, message, created_at
+	SELECT id, user_id, title, message, read_at, created_at
 	FROM notifications
 	ORDER BY created_at DESC
 	LIMIT ? OFFSET ?
@@ -124,6 +126,7 @@ func (r *NotificationRepository) ListAll(limit int, offset int) ([]domain.Notifi
 			&notification.UserID,
 			&notification.Title,
 			&notification.Message,
+			&notification.ReadAt,
 			&notification.CreatedAt,
 		)
 		if err != nil {
@@ -138,4 +141,45 @@ func (r *NotificationRepository) ListAll(limit int, offset int) ([]domain.Notifi
 	}
 
 	return notifications, nil
+}
+
+func (r *NotificationRepository) MarkAsRead(id int64, userID int64) error {
+	query := `
+	UPDATE notifications
+	SET read_at = NOW()
+	WHERE id = ? AND user_id = ? AND read_at IS NULL
+	`
+
+	_, err := r.db.Exec(query, id, userID)
+	return err
+}
+
+func (r *NotificationRepository) DeleteByIDAndUserID(id int64, userID int64) error {
+	query := `
+	DELETE FROM notifications
+	WHERE id = ? AND user_id = ?
+	`
+
+	_, err := r.db.Exec(query, id, userID)
+	return err
+}
+
+func (r *NotificationRepository) CountByUserID(userID int64) (int64, error) {
+	query := `
+	SELECT COUNT(*) FROM notifications WHERE user_id = ?
+	`
+
+	var count int64
+	err := r.db.QueryRow(query, userID).Scan(&count)
+	return count, err
+}
+
+func (r *NotificationRepository) CountAll() (int64, error) {
+	query := `
+	SELECT COUNT(*) FROM notifications
+	`
+
+	var count int64
+	err := r.db.QueryRow(query).Scan(&count)
+	return count, err
 }
