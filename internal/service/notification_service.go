@@ -1,9 +1,9 @@
 package service
 
 import (
-	"errors"
 	"notification-api/internal/domain"
 	"notification-api/internal/repository"
+	"notification-api/internal/validation"
 )
 
 type PaginatedNotifications struct {
@@ -14,13 +14,13 @@ type PaginatedNotifications struct {
 }
 
 type NotificationService struct {
-	notificationRepo *repository.NotificationRepository
+	notificationRepo repository.NotificationRepositoryInterface
 	eventService     *EventService
 	cacheService     *CacheService
 }
 
 func NewNotificationService(
-	notificationRepo *repository.NotificationRepository,
+	notificationRepo repository.NotificationRepositoryInterface,
 	eventService *EventService,
 	cacheService *CacheService,
 ) *NotificationService {
@@ -32,12 +32,12 @@ func NewNotificationService(
 }
 
 func (s *NotificationService) Create(userID int64, title string, message string) (*domain.Notification, error) {
-	if title == "" {
-		return nil, errors.New("title is required")
+	if err := validation.ValidateNotificationTitle(title); err != nil {
+		return nil, err
 	}
 
-	if message == "" {
-		return nil, errors.New("message is required")
+	if err := validation.ValidateNotificationMessage(message); err != nil {
+		return nil, err
 	}
 
 	notification := &domain.Notification{

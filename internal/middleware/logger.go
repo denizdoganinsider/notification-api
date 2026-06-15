@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -14,13 +14,25 @@ func LoggerMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		err := next(c)
 
 		duration := time.Since(start)
+		status := c.Response().Status
 
-		log.Printf("%s %s %d %s",
-			c.Request().Method,
-			c.Request().URL.Path,
-			c.Response().Status,
-			duration,
-		)
+		requestID, _ := c.Get(RequestIDKey).(string)
+
+		attrs := []slog.Attr{
+			slog.String("method", c.Request().Method),
+			slog.String("path", c.Request().URL.Path),
+			slog.Int("status", status),
+			slog.String("duration", duration.String()),
+			slog.String("ip", c.RealIP()),
+			slog.String("request_id", requestID),
+			slog.String("user_agent", c.Request().UserAgent()),
+		}
+
+		if status >= 500 {
+			slog.LogAttrs(c.Request().Context(), slog.LevelError, "request", attrs...)
+		} else {
+			slog.LogAttrs(c.Request().Context(), slog.LevelInfo, "request", attrs...)
+		}
 
 		return err
 	}

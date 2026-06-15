@@ -4,21 +4,29 @@ import (
 	"errors"
 	"notification-api/internal/domain"
 	"notification-api/internal/repository"
+	"notification-api/internal/validation"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	userRepo *repository.UserRepository
+	userRepo repository.UserRepositoryInterface
 }
 
-func NewUserService(userRepo *repository.UserRepository) *UserService {
+func NewUserService(userRepo repository.UserRepositoryInterface) *UserService {
 	return &UserService{
 		userRepo: userRepo,
 	}
 }
 
 func (s *UserService) Register(email, password string) (*domain.User, error) {
+	if err := validation.ValidateEmail(email); err != nil {
+		return nil, err
+	}
+
+	if err := validation.ValidatePassword(password); err != nil {
+		return nil, err
+	}
 
 	existingUser, _ := s.userRepo.GetByEmail(email)
 	if existingUser != nil {

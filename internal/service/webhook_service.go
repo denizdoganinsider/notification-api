@@ -8,10 +8,10 @@ import (
 )
 
 type WebhookService struct {
-	webhookRepo *repository.WebhookRepository
+	webhookRepo repository.WebhookRepositoryInterface
 }
 
-func NewWebhookService(webhookRepo *repository.WebhookRepository) *WebhookService {
+func NewWebhookService(webhookRepo repository.WebhookRepositoryInterface) *WebhookService {
 	return &WebhookService{
 		webhookRepo: webhookRepo,
 	}

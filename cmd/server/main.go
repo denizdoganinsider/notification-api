@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"notification-api/config"
 	"notification-api/internal/controller"
@@ -18,10 +20,17 @@ import (
 )
 
 func main() {
-	db := config.NewDatabase()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	cfg := config.LoadConfig()
+
+	notificationMiddleware.InitJWT(cfg.JWTSecret)
+
+	db := config.NewDatabase(cfg)
 	defer db.Close()
 
-	redisClient := config.NewRedisClient()
+	redisClient := config.NewRedisClient(cfg)
 	defer redisClient.Close()
 
 	userRepo := repository.NewUserRepository(db)
@@ -45,6 +54,7 @@ func main() {
 
 	e := echo.New()
 
+	e.Use(notificationMiddleware.RequestIDMiddleware)
 	e.Use(notificationMiddleware.LoggerMiddleware)
 	e.Use(notificationMiddleware.RateLimiterMiddleware(redisClient, 100, 1*time.Minute))
 
@@ -79,7 +89,7 @@ func main() {
 	admin.GET("/notifications", adminController.ListNotifications)
 
 	go func() {
-		if err := e.Start(":8080"); err != nil && err != http.ErrServerClosed {
+		if err := e.Start(fmt.Sprintf(":%s", cfg.ServerPort)); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal(err)
 		}
 	}()

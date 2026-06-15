@@ -9,7 +9,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-var JwtSecret = []byte("my-secret-key")
+var JwtSecret []byte
+
+func InitJWT(secret string) {
+	JwtSecret = []byte(secret)
+}
 
 func GenerateToken(userID int64, role string) (string, error) {
 	claims := jwt.MapClaims{
