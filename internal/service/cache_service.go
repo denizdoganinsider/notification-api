@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 )
+
+var errNoRedis = errors.New("redis client not configured")
 
 type CacheService struct {
 	redisClient *redis.Client
@@ -24,6 +27,10 @@ func NewCacheService(redisClient *redis.Client) *CacheService {
 }
 
 func (s *CacheService) GetNotifications(userID int64, page int, perPage int) ([]domain.Notification, error) {
+	if s.redisClient == nil {
+		return nil, errNoRedis
+	}
+
 	ctx := context.Background()
 	key := fmt.Sprintf("notifications:user:%d:page:%d:per_page:%d", userID, page, perPage)
 
@@ -42,6 +49,10 @@ func (s *CacheService) GetNotifications(userID int64, page int, perPage int) ([]
 }
 
 func (s *CacheService) SetNotifications(userID int64, page int, perPage int, notifications []domain.Notification) error {
+	if s.redisClient == nil {
+		return errNoRedis
+	}
+
 	ctx := context.Background()
 	key := fmt.Sprintf("notifications:user:%d:page:%d:per_page:%d", userID, page, perPage)
 
@@ -54,6 +65,10 @@ func (s *CacheService) SetNotifications(userID int64, page int, perPage int, not
 }
 
 func (s *CacheService) InvalidateUserNotifications(userID int64) error {
+	if s.redisClient == nil {
+		return errNoRedis
+	}
+
 	ctx := context.Background()
 	pattern := fmt.Sprintf("notifications:user:%d:*", userID)
 

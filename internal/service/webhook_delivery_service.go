@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"notification-api/internal/domain"
 	"notification-api/internal/repository"
@@ -14,11 +14,11 @@ import (
 const maxRetries = 3
 
 type WebhookDeliveryService struct {
-	webhookRepo *repository.WebhookRepository
+	webhookRepo repository.WebhookRepositoryInterface
 	httpClient  *http.Client
 }
 
-func NewWebhookDeliveryService(webhookRepo *repository.WebhookRepository) *WebhookDeliveryService {
+func NewWebhookDeliveryService(webhookRepo repository.WebhookRepositoryInterface) *WebhookDeliveryService {
 	return &WebhookDeliveryService{
 		webhookRepo: webhookRepo,
 		httpClient: &http.Client{
@@ -61,7 +61,11 @@ func (s *WebhookDeliveryService) deliverWithRetry(webhook domain.Webhook, body [
 
 		req, err := http.NewRequest(http.MethodPost, webhook.URL, bytes.NewBuffer(body))
 		if err != nil {
-			log.Printf("webhook delivery failed: webhook_id=%d url=%s error=%v", webhook.ID, webhook.URL, err)
+			slog.Error("webhook delivery failed",
+				"webhook_id", webhook.ID,
+				"url", webhook.URL,
+				"error", err,
+			)
 			return
 		}
 
@@ -82,6 +86,10 @@ func (s *WebhookDeliveryService) deliverWithRetry(webhook domain.Webhook, body [
 		lastErr = fmt.Errorf("server error: status=%d", resp.StatusCode)
 	}
 
-	log.Printf("webhook delivery failed after %d retries: webhook_id=%d url=%s error=%v",
-		maxRetries, webhook.ID, webhook.URL, lastErr)
+	slog.Error("webhook delivery failed after retries",
+		"retries", maxRetries,
+		"webhook_id", webhook.ID,
+		"url", webhook.URL,
+		"error", lastErr,
+	)
 }
